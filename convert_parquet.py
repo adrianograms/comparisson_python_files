@@ -2,17 +2,30 @@ import argparse
 import pandas as pd
 import os
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, when, sum, lit
-from pyspark.sql.types import FloatType
 
 def create_map():
+    """Function to create the dict with the parameters passed on the execution.
+
+    Returns:
+        dict: Dictionary with all the parameters passed.
+    """
     parser = argparse.ArgumentParser(description="Comparison program for file.")
     parser.add_argument('filename')           # positional argument
     parser.add_argument('-t' ,"--type", help="Type of the file, can be csv, excel, parquet or tsv", choices = ['csv', 'excel', 'tsv'], default='csv', metavar='')
+    parser.add_argument('-e', "--engine", help="Engine to make the conversion, pandas or pyspark", choices = ['pandas', 'pyspark'], default='pandas', metavar='')
 
     return parser.parse_args()
 
-def read_files(path_file, type='csv'):
+def read_files_pandas(path_file, type='csv'):
+    """Function to read file and convert to parquet using pandas for that.
+
+    Args:
+        path_file (string): Path of the file
+        type (str, optional): Type of the file. Defaults to 'csv'.
+
+    Raises:
+        TypeError: Invalid type.
+    """
     if type == 'csv':
         df = pd.read_csv(path_file)
     elif type == 'excel':
@@ -27,6 +40,15 @@ def read_files(path_file, type='csv'):
     df.to_parquet(file_name, index=False)
 
 def read_files_pyspark(path_file, type='csv'):
+    """Function to read file and convert to parquet using pyspark for that.
+
+    Args:
+        path_file (string): Path of the file
+        type (str, optional): Type of the file. Defaults to 'csv'.
+
+    Raises:
+        TypeError: Invalid type.
+    """
     spark = SparkSession.builder.appName("SelectColumns").getOrCreate()
     if type == 'csv':
         df = spark.read.option("inferSchema", True).csv(path_file, header=True)
@@ -45,6 +67,11 @@ def read_files_pyspark(path_file, type='csv'):
 
 def convert_parquet():
     args = create_map()
-    read_files_pyspark(args.filename, args.type)
+    if args.engine == 'pandas':
+        read_files_pandas(args.filename, args.type)
+    elif args.engine == 'pyspark':
+        read_files_pyspark(args.filename, args.type)
+    else:
+        raise TypeError("Engine Invalid.")
 
 convert_parquet()

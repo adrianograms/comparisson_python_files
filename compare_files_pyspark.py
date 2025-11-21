@@ -6,12 +6,42 @@ from pyspark.sql.functions import col, when, sum, lit
 from pyspark.sql.types import FloatType
 
 def adjust_column_names(name_columns):
+    """Function to adjust the name of the columns on a dataset, lowering case everything and replacing all spaces,
+        and creating a dictionary with the old and new names.
+
+    Args:
+        name_columns (list): List of columns to be adjusted 
+
+    Returns:
+        dict: dictionary with the old name as key and new name as value for the conversion function.
+    """
     return dict([(column, column.strip().lower().replace(' ', '_')) for column in name_columns ])
 
 def adjust_column_names_list(name_columns):
+    """Function to adjust the name of the columns on a dataset, lowering case everything and replacing all spaces. 
+
+    Args:
+        name_columns (list): List of columns to be adjusted 
+
+    Returns:
+        list: list with columns with their name adjusted.
+    """
     return [column.strip().lower().replace(' ', '_') for column in name_columns ]
 
 def rename_columns(df_1, df_2, key_columns_1, key_columns_2, compare_column_1, compare_column_2):
+    """Function to rename the columns of df_2 to the same names as in df_1.
+
+    Args:
+        df_1 (Dataframe): Dataframe of the primary dataset
+        df_2 (Dataframe): Dataframe of the secondary dataset
+        key_columns_1 (list): name of the key columns for the primary dataset.
+        key_columns_2 (list): name of the key columns for the secondary dataset.
+        compare_column_1 (list): name of the comparison columns for the primary dataset.
+        compare_column_2 (list): name of the comparison columns for the secondary dataset.
+
+    Returns:
+        tuple: Tuple with both dataframes updated.
+    """
     all_columns_1 = key_columns_1 + compare_column_1
     all_columns_2 = key_columns_2 + compare_column_2
 
@@ -29,6 +59,19 @@ def rename_columns(df_1, df_2, key_columns_1, key_columns_2, compare_column_1, c
     return df_1, df_2
 
 def read_files(path_file_1, path_file_2, type='csv'):
+    """Function to the read the dataset and store them in dataframes of pyspark.
+
+    Args:
+        path_file_1 (string): path for the primary dataset
+        path_file_2 (string): path for the secondary dataset
+        type (str, optional): type of the dataset files. Defaults to 'csv'.
+
+    Raises:
+        TypeError: Invalid type
+
+    Returns:
+        tuple: Tuple with both dataframes from the primary and secondary files.
+    """
     spark = SparkSession.builder.appName("SelectColumns").getOrCreate()
     if type == 'csv':
         df_1 = spark.read.option("inferSchema", True).csv(path_file_1, header=True)
@@ -50,6 +93,17 @@ def read_files(path_file_1, path_file_2, type='csv'):
     return df_1, df_2
 
 def group_datasets(df_1, df_2, key_columns, compare_columns):
+    """Function to group the dataset using the key columns as the group columns and the compare columns as the aggregate columns.
+
+    Args:
+        df_1 (Dataframe): Dataframe of the primary dataset
+        df_2 (Dataframe): Dataframe of the secondary dataset
+        key_columns (list): List of the key columns
+        compare_columns (list): List of the comparison columns
+
+    Returns:
+        tuple: Tuple with the aggregated Dataframes generated.
+    """
     numeric_pattern = r"^-?\d+(\.\d+)?$"
 
     for column_name in compare_columns:
@@ -72,6 +126,15 @@ def group_datasets(df_1, df_2, key_columns, compare_columns):
     return df_1.groupBy(key_columns).agg(*aggregation_expressions), df_2.groupBy(key_columns).agg(*aggregation_expressions)
 
 def compare_datasets(df_1, df_2, key_columns, compare_columns, max_diff):
+    """Function to compare the Dataframes and generate the files with the difference between them.
+
+    Args:
+        df_1 (Dataframe): Dataframe of the primary dataset
+        df_2 (Dataframe): Dataframe of the secondary dataset
+        key_columns (list): List of the key columns
+        compare_columns (list): List of the comparison columns
+        max_diff (float): Threshold of difference between the comparison columns.
+    """
 
     columns_primary = [column + '_primary' for column in compare_columns]
     columns_secondary = [column + '_secondary' for column in compare_columns]
@@ -117,6 +180,18 @@ def compare_datasets(df_1, df_2, key_columns, compare_columns, max_diff):
 
 
 def compare_files(path_file_1, path_file_2, key_columns_1, key_columns_2, compare_column_1, compare_column_2, type, max_diff):
+    """Function aggregating all the steps of the comparison between the datasets.
+
+    Args:
+        path_file_1 (string): Path for the primary dataset.
+        path_file_2 (string): Path for the secondary dataset.
+        key_columns_1 (list): List of the key columns for the primary dataset.
+        key_columns_2 (list): List of the key columns for the secondary dataset.
+        compare_column_1 (list): List of the compare columns for the primary dataset.
+        compare_column_2 (list): List of the compare columns for the secondary dataset.
+        type (string): Type for the datasets.
+        max_diff (float8): threshold of difference between the comparison columns.
+    """
     key_columns = key_columns_1
     compare_columns = compare_column_1
     df_1, df_2 = read_files(path_file_1, path_file_2, type=type)
@@ -125,6 +200,11 @@ def compare_files(path_file_1, path_file_2, key_columns_1, key_columns_2, compar
     compare_datasets(df_1, df_2, key_columns, compare_columns, max_diff)
 
 def create_map():
+    """Function to create the dict with the parameters passed on the execution.
+
+    Returns:
+        dict: Dictionary with all the parameters passed.
+    """
     parser = argparse.ArgumentParser(description="Comparison program for file.")
     parser.add_argument('-p' ,'--primary', help="Path to the primary file of the comparison", metavar='', required=True)
     parser.add_argument('-s' ,"--secondary",  help="Path to the secondary file of the comparison", metavar='', required=True)
@@ -140,6 +220,8 @@ def create_map():
     return parser.parse_args()
 
 def get_arguments():
+    """Function that compiles the entire application.
+    """
     args = create_map()
 
     path_file_1 = args.primary
